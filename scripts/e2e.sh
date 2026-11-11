@@ -11,6 +11,11 @@ docker compose exec -T kafka rpk topic create ledger.events >/dev/null 2>&1 || t
 docker compose exec -T kafka rpk topic create ledger.events.dlq >/dev/null 2>&1 || true
 docker compose exec -T kafka rpk topic describe ledger.events >/dev/null
 docker compose exec -T kafka rpk topic describe ledger.events.dlq >/dev/null
+python - <<'PY'
+from urllib.request import urlopen
+with urlopen('http://localhost:5173/', timeout=10) as response:
+    assert b'Ledger Bridge' in response.read()
+PY
 
 publish() {
   printf '%s\n' "$1" | docker compose exec -T kafka rpk topic produce ledger.events >/dev/null
