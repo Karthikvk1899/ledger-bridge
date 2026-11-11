@@ -1,3 +1,5 @@
+import hashlib
+
 from redis.asyncio import Redis
 
 from .domain import Conflict, Event, Record, apply
@@ -18,6 +20,7 @@ class Store:
     async def ingest(self, event: Event) -> tuple[Record, bool]:
         key = self.key(event.correlation_id)
         marker = f"reconcile:event:{event.event_id}"
+        fingerprint = hashlib.sha256(event.model_dump_json().encode()).hexdigest()
         # WATCH protects the read/derive/write boundary. An event ID used with a
         # different correlation ID remains a contract violation within retention.
         from redis.exceptions import WatchError
@@ -27,8 +30,8 @@ class Store:
                     await pipe.watch(key, marker)
                     raw, seen = await pipe.get(key), await pipe.get(marker)
                     if seen:
-                        if seen.decode() != event.correlation_id:
-                            raise Conflict("event_id reused for another correlation_id")
+                        if seen.decode() != fingerprint:
+                            raise Conflict("event_id reused with different payload")
                         record = Record.model_validate_json(raw) if raw else None
                         if record is None:
                             raise Conflict("event marker exists without record")
@@ -39,7 +42,7 @@ class Store:
                         return record, False
                     pipe.multi()
                     pipe.set(key, updated.model_dump_json(), ex=self.ttl_seconds)
-                    pipe.set(marker, event.correlation_id, ex=self.ttl_seconds)
+                    pipe.set(marker, fingerprint, ex=self.ttl_seconds)
                     await pipe.execute()
                     return updated, True
                 except WatchError:
