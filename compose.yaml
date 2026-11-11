@@ -1,0 +1,26 @@
+services:
+  kafka:
+    image: redpandadata/redpanda:v24.3.5
+    command: ["redpanda", "start", "--overprovisioned", "--smp", "1", "--memory", "1G", "--reserve-memory", "0M", "--node-id", "0", "--check=false", "--kafka-addr", "internal://0.0.0.0:9092,external://0.0.0.0:19092", "--advertise-kafka-addr", "internal://kafka:9092,external://localhost:19092"]
+    ports: ["19092:19092"]
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis-data:/data"]
+  api:
+    build: ./service
+    environment: ["REDIS_URL=redis://redis:6379/0"]
+    depends_on: [redis]
+    ports: ["8000:8000"]
+  worker:
+    build: ./service
+    command: ["python", "-m", "app.consumer"]
+    environment: ["REDIS_URL=redis://redis:6379/0", "KAFKA_BOOTSTRAP=kafka:9092"]
+    depends_on: [redis, kafka]
+    restart: on-failure
+  web:
+    build: ./web
+    depends_on: [api]
+    ports: ["5173:5173"]
+volumes:
+  redis-data:
