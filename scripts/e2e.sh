@@ -109,3 +109,6 @@ for _ in range(60):
 else:
     raise SystemExit('worker did not recover after restart')
 PY
+
+# Exercise a bounded batch through the actual broker, worker, Redis and API.
+docker compose exec -T worker python - --bootstrap kafka:9092 --api http://api:8000 --pairs 30 < scripts/benchmark.py
