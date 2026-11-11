@@ -45,10 +45,10 @@ The record will become `matched`; change the actual amount to see `mismatched` o
 
 | Field | Type | Rule |
 | --- | --- | --- |
-| `event_id` | string | Unique across all correlations during retention; 1–128 characters |
+| `event_id` | string | Unique across all correlations during retention; 1–128 ASCII letters, digits, `_`, `.`, `:`, `-` |
 | `correlation_id` | string | 1–128 ASCII letters, digits, `_`, `.`, `:`, `-` |
 | `source` | string | `expected` or `actual` |
-| `amount_minor` | integer | Minor currency units; negative and zero permitted |
+| `amount_minor` | integer | Strict JSON integer in minor currency units; negative and zero permitted |
 | `currency` | string | Three uppercase ASCII letters |
 
 The first event for a side wins. Replaying the same event ID with the same payload is a no-op. Reusing an event ID with a different payload, or using a new event ID to overwrite an occupied side, sends that event to the dead-letter topic. `matched` requires equal integer amounts and equal currency codes. Event order does not matter. Records expire seven days after the last accepted event; each event marker expires seven days after it was first accepted. After expiration, old events can be processed again; choose Kafka retention and upstream replay policy accordingly.
@@ -67,13 +67,13 @@ PYTHONPATH=service pytest -q service/tests
 cd web && npm install && npm test && npm run build
 ```
 
-The unit and API tests run without Docker via a fake Redis instance. The Python tests cover event order, duplicate payload integrity, mismatches, concurrent sides, and API validation; Vitest checks console rendering and error reporting. GitHub Actions runs both suites, the TypeScript build, and a Compose smoke test that publishes Kafka events and polls the live API. To run that smoke test locally, start the stack and run `bash scripts/e2e.sh`.
+The unit and API tests run without Docker via a fake Redis instance. The Python tests cover event order, duplicate payload integrity, mismatches, concurrent sides, and API validation; Vitest checks console rendering and error reporting. GitHub Actions runs both suites, the TypeScript build, and a Compose smoke test that publishes Kafka events, polls the live API, and checks dead-letter delivery for invalid and conflicting events. To run that smoke test locally, start the stack and run `bash scripts/e2e.sh`.
 
 ## Deployment notes
 
-Run the API and worker as separate containers. Provision Kafka topics, Redis persistence, network policy, TLS and credentials through your platform. This local Compose stack deliberately has no public authentication. Add an ingress/OIDC layer and authorization before exposing it. Keep the API private if event payloads include sensitive business identifiers. Set `REDIS_URL`, `KAFKA_BOOTSTRAP`, and optionally `KAFKA_TOPIC` and `LOG_LEVEL` on the worker. Kafka consumer group `ledger-bridge-v1` is fixed in this version. For AWS, a typical mapping is ECS for API/worker, MSK for Kafka, ElastiCache for Redis, and an ALB with authentication controls for the API. No AWS provisioning is included here.
+Run the API and worker as separate containers. Provision Kafka topics, Redis persistence, network policy, TLS and credentials through your platform. This local Compose stack binds exposed ports to localhost and has no public authentication. Add an ingress/OIDC layer and authorization before exposing it. Keep the API private if event payloads include sensitive business identifiers. Set `REDIS_URL`, `KAFKA_BOOTSTRAP`, and optionally `KAFKA_TOPIC` and `LOG_LEVEL` on the worker. Kafka consumer group `ledger-bridge-v1` is fixed in this version. For AWS, a typical mapping is ECS for API/worker, MSK for Kafka, ElastiCache for Redis, and an ALB with authentication controls for the API. No AWS provisioning is included here.
 
-**Operational limits:** Redis is the materialized source of reconciliation state; loss of Redis data requires replay from retained Kafka input. The read API does not provide historical revisions or pagination. A single event is one side of one correlation. Redis transactions and Kafka commits are not a distributed transaction: delivery is at least once, with idempotency bounded by the marker TTL. Monitor worker failures, Redis health, Kafka lag, and dead-letter volume. The smoke test exercises the local happy path and amount mismatch; it does not establish capacity, availability, or security for an internet-facing deployment.
+**Operational limits:** Redis is the materialized source of reconciliation state; loss of Redis data requires replay from retained Kafka input. The read API does not provide historical revisions or pagination. A single event is one side of one correlation. Redis transactions and Kafka commits are not a distributed transaction: delivery is at least once, with idempotency bounded by the marker TTL. Monitor worker failures, Redis health, Kafka lag, and dead-letter volume. The smoke test exercises local outcomes and the dead-letter path; it does not establish capacity, availability, or security for an internet-facing deployment.
 
 ## Contributing
 
