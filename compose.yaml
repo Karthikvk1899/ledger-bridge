@@ -9,7 +9,7 @@ services:
     volumes: ["redis-data:/data"]
   api:
     build: ./service
-    environment: ["REDIS_URL=redis://redis:6379/0"]
+    environment: ["REDIS_URL=redis://redis:6379/0", "APP_ENV=${APP_ENV:-development}", "OIDC_ISSUER=${OIDC_ISSUER:-}", "OIDC_AUDIENCE=${OIDC_AUDIENCE:-}", "OIDC_JWKS_URL=${OIDC_JWKS_URL:-}"]
     depends_on: [redis]
     ports: ["127.0.0.1:8000:8000"]
   worker:
@@ -19,8 +19,15 @@ services:
     depends_on: [redis, kafka]
     restart: on-failure
   web:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        VITE_OIDC_ISSUER: ${OIDC_ISSUER:-}
+        VITE_OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+        VITE_OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+        VITE_OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+        VITE_OIDC_SCOPE: ${OIDC_SCOPE:-}
     depends_on: [api]
-    ports: ["127.0.0.1:5173:5173"]
+    ports: ["127.0.0.1:5173:8080"]
 volumes:
   redis-data:
