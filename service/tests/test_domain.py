@@ -30,3 +30,10 @@ def test_conflicting_side_rejected():
 def test_contract_rejects_invalid_currency():
     with pytest.raises(ValueError):
         event("actual", currency="usd")
+
+
+def test_contract_rejects_coerced_amount_and_unsafe_event_id():
+    with pytest.raises(ValueError):
+        Event(event_id="safe", correlation_id="trade-1", source="actual", amount_minor="100", currency="USD")
+    with pytest.raises(ValueError):
+        event("actual", event_id="bad id")
