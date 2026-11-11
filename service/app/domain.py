@@ -3,23 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictInt
 
 
 class Event(BaseModel):
-    event_id: str = Field(min_length=1, max_length=128)
+    event_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")
     correlation_id: str = Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")
     source: Literal["expected", "actual"]
-    amount_minor: int
+    amount_minor: StrictInt
     currency: str = Field(pattern=r"^[A-Z]{3}$")
-
-    @field_validator("event_id")
-    @classmethod
-    def no_blank_id(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("event_id cannot be blank")
-        return value
-
 
 class Side(BaseModel):
     event_id: str
