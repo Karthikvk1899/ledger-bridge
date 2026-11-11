@@ -15,6 +15,8 @@ async def test_atomic_ingestion_and_cross_key_idempotency():
     assert not changed
     with pytest.raises(Conflict):
         await store.ingest(first.model_copy(update={"correlation_id": "b"}))
+    with pytest.raises(Conflict):
+        await store.ingest(first.model_copy(update={"amount_minor": 13}))
     result, changed = await store.ingest(Event(event_id="two", correlation_id="a", source="expected", amount_minor=12, currency="USD"))
     assert changed and result.status == "matched"
     assert (await store.get("a")) == result
