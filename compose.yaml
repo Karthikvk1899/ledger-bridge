@@ -15,7 +15,7 @@ services:
   worker:
     build: ./service
     command: ["python", "-m", "app.consumer"]
-    environment: ["REDIS_URL=redis://redis:6379/0", "KAFKA_BOOTSTRAP=kafka:9092"]
+    environment: ["REDIS_URL=redis://redis:6379/0", "KAFKA_BOOTSTRAP=kafka:9092", "METRICS_PORT=9100"]
     depends_on: [redis, kafka]
     restart: on-failure
   web:
