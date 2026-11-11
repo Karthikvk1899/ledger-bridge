@@ -22,6 +22,8 @@ publish '{"event_id":"e1","correlation_id":"smoke-match","source":"expected","am
 publish '{"event_id":"e1","correlation_id":"smoke-match","source":"expected","amount_minor":12500,"currency":"USD"}'
 publish '{"event_id":"e3","correlation_id":"smoke-mismatch","source":"expected","amount_minor":12500,"currency":"USD"}'
 publish '{"event_id":"e4","correlation_id":"smoke-mismatch","source":"actual","amount_minor":12501,"currency":"USD"}'
+publish '{"event_id":"e1","correlation_id":"smoke-match","source":"expected","amount_minor":1,"currency":"USD"}'
+publish '{"event_id":"invalid-amount","correlation_id":"smoke-invalid","source":"actual","amount_minor":"12500","currency":"USD"}'
 
 python - <<'PY'
 import json
@@ -43,4 +45,28 @@ for correlation, expected_status in [('smoke-match', 'matched'), ('smoke-mismatc
         time.sleep(2)
     else:
         raise SystemExit(f'{correlation} never reached {expected_status}')
+PY
+
+# Both a changed duplicate and an invalid contract must reach the dead-letter topic.
+docker compose exec -T worker python - <<'PY'
+import asyncio
+import json
+from aiokafka import AIOKafkaConsumer
+
+async def verify():
+    consumer = AIOKafkaConsumer('ledger.events.dlq', bootstrap_servers='kafka:9092',
+                                auto_offset_reset='earliest', enable_auto_commit=False)
+    await consumer.start()
+    seen = set()
+    try:
+        while len(seen) < 2:
+            message = await asyncio.wait_for(consumer.getone(), timeout=30)
+            assert any(k == 'error' for k, _ in message.headers)
+            seen.add(json.loads(message.value)['event_id'])
+        assert seen == {'e1', 'invalid-amount'}, seen
+        print('dead-letter events:', sorted(seen))
+    finally:
+        await consumer.stop()
+
+asyncio.run(verify())
 PY
