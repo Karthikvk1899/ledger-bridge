@@ -1,6 +1,14 @@
 name: CI
 on: [push, pull_request]
+permissions: { contents: read }
 jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with: { fail-on-severity: high }
   python:
     runs-on: ubuntu-latest
     steps:
@@ -15,8 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
-      - run: npm install
+        with: { node-version: '22', cache: 'npm', cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm test
       - run: npm run build
   integration:
