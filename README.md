@@ -20,6 +20,10 @@ flowchart LR
 
 The consumer validates each JSON event with Pydantic. A Redis WATCH transaction guards the read, reconciliation, and write. The record and event ID markers use seven-day expiration windows. The Kafka offset is committed only after Redis succeeds or an invalid/conflicting message is acknowledged by the dead-letter topic. A retry after a crash can see the marker and avoid a second state transition.
 
+## Demo
+
+https://github.com/user-attachments/assets/dec7a2b0-c1de-4377-bd12-3f35e513b226
+
 ## Quick start
 
 Prerequisites: Docker Compose v2. Run from the repository root:
